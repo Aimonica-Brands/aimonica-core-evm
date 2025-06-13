@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.21;
 
+import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AimStakingEvm is Ownable {
-    IERC20 public immutable STAKING_TOKEN;
+contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
+    mapping(bytes32 => address) public projectStakingTokens;
 
     enum StakeStatus { Active, Unstaked, EmergencyUnstaked }
 
@@ -14,6 +17,7 @@ contract AimStakingEvm is Ownable {
         address user;
         uint256 amount;
         bytes32 projectId;
+        address stakingToken;
         uint256 stakedAt;
         uint256 duration; // in seconds
         uint256 unlockedAt;
@@ -41,42 +45,53 @@ contract AimStakingEvm is Ownable {
     );
     event Unstaked(uint256 stakeId, address indexed user, uint256 amount);
     event EmergencyUnstaked(uint256 stakeId, address indexed user, uint256 amount);
+    event ProjectStakingTokenSet(bytes32 indexed projectId, address tokenAddress);
 
-    constructor(address stakingTokenAddress, address initialOwner) Ownable(initialOwner) {
-        STAKING_TOKEN = IERC20(stakingTokenAddress);
+    function initialize(address admin) external initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(MANAGER_ROLE, admin);
     }
 
-    function registerProject(bytes32 projectId) external onlyOwner {
+    function setProjectStakingToken(bytes32 projectId, address stakingTokenAddress) external onlyRole(MANAGER_ROLE) {
+        require(registeredProjects[projectId], "Project not registered");
+        require(stakingTokenAddress != address(0), "AimStaking: Invalid staking token address");
+        projectStakingTokens[projectId] = stakingTokenAddress;
+        emit ProjectStakingTokenSet(projectId, stakingTokenAddress);
+    }
+
+    function registerProject(bytes32 projectId) external onlyRole(MANAGER_ROLE) {
         require(!registeredProjects[projectId], "Project already registered");
         registeredProjects[projectId] = true;
         emit ProjectRegistered(projectId);
     }
 
-    function unregisterProject(bytes32 projectId) external onlyOwner {
+    function unregisterProject(bytes32 projectId) external onlyRole(MANAGER_ROLE) {
         require(registeredProjects[projectId], "Project not registered");
         registeredProjects[projectId] = false;
         emit ProjectUnregistered(projectId);
     }
 
-    function addDurationOption(uint256 durationInDays) external onlyOwner {
+    function addDurationOption(uint256 durationInDays) external onlyRole(MANAGER_ROLE) {
         require(durationInDays > 0, "Duration must be positive");
         require(!durationOptions[durationInDays], "Duration option already exists");
         durationOptions[durationInDays] = true;
         emit DurationOptionAdded(durationInDays);
     }
 
-    function removeDurationOption(uint256 durationInDays) external onlyOwner {
+    function removeDurationOption(uint256 durationInDays) external onlyRole(MANAGER_ROLE) {
         require(durationOptions[durationInDays], "Duration option not found");
         durationOptions[durationInDays] = false;
         emit DurationOptionRemoved(durationInDays);
     }
 
-    function stake(uint256 amount, uint256 durationInDays, bytes32 projectId) external {
+    function stake(uint256 amount, uint256 durationInDays, bytes32 projectId) external nonReentrant {
         require(amount > 0, "Amount must be > 0");
         require(durationOptions[durationInDays], "Invalid duration");
         require(registeredProjects[projectId], "Project not registered");
+        address stakingTokenAddress = projectStakingTokens[projectId];
+        require(stakingTokenAddress != address(0), "Staking token not set for project");
 
-        STAKING_TOKEN.transferFrom(msg.sender, address(this), amount);
+        IERC20(stakingTokenAddress).transferFrom(msg.sender, address(this), amount);
 
         uint256 stakeId = ++_stakeCounter;
         uint256 durationInSeconds = durationInDays * 1 days;
@@ -87,6 +102,7 @@ contract AimStakingEvm is Ownable {
             user: msg.sender,
             amount: amount,
             projectId: projectId,
+            stakingToken: stakingTokenAddress,
             stakedAt: block.timestamp,
             duration: durationInSeconds,
             unlockedAt: unlockedAt,
@@ -99,25 +115,25 @@ contract AimStakingEvm is Ownable {
         emit Staked(stakeId, msg.sender, amount, projectId, durationInSeconds);
     }
 
-    function unstake(uint256 stakeId) external {
+    function unstake(uint256 stakeId) external nonReentrant {
         Stake storage userStake = stakes[stakeId];
         require(userStake.user == msg.sender, "Not stake owner");
         require(userStake.status == StakeStatus.Active, "Stake not active");
         require(block.timestamp >= userStake.unlockedAt, "Stake still locked");
 
         userStake.status = StakeStatus.Unstaked;
-        STAKING_TOKEN.transfer(msg.sender, userStake.amount);
+        IERC20(userStake.stakingToken).transfer(msg.sender, userStake.amount);
 
         emit Unstaked(stakeId, msg.sender, userStake.amount);
     }
 
-    function emergencyUnstake(uint256 stakeId) external {
+    function emergencyUnstake(uint256 stakeId) external nonReentrant {
         Stake storage userStake = stakes[stakeId];
         require(userStake.user == msg.sender, "Not stake owner");
         require(userStake.status == StakeStatus.Active, "Stake not active");
 
         userStake.status = StakeStatus.EmergencyUnstaked;
-        STAKING_TOKEN.transfer(msg.sender, userStake.amount);
+        IERC20(userStake.stakingToken).transfer(msg.sender, userStake.amount);
 
         emit EmergencyUnstaked(stakeId, msg.sender, userStake.amount);
     }

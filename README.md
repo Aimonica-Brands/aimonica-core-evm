@@ -1,14 +1,17 @@
 # AIM Launchpad EVM Staking Contracts
 
-This repository contains the EVM-compatible smart contracts for the AIM Launchpad, a multi-chain staking platform. This contract, `AimStakingEvm`, is designed to be deployed on EVM chains such as Base, Ethereum, Arbitrum, etc.
+This repository contains the EVM-compatible smart contracts for the AIM Launchpad, a multi-chain staking platform. The `AimStaking` contract is designed to be deployed on EVM chains and is upgradeable using the OpenZeppelin UUPS proxy pattern.
 
 ## Features
 
-- **ERC20 Token Staking**: Stake any ERC20-compliant token.
-- **Time-Locked Staking**: Supports fixed staking durations (e.g., 7, 14, 30 days), configurable by the contract owner.
+- **Multi-Project Staking**: Each registered project can have its own ERC20 staking token.
+- **Upgradeable**: The contract logic can be upgraded without migrating user data, ensuring future-proof functionality.
+- **Time-Locked Staking**: Supports fixed staking durations (e.g., 7, 14, 30 days), configurable by the contract manager.
 - **Stake Metadata**: Stores essential data for each stake, including amount, timestamp, duration, and project ID.
 - **Emergency Unstake**: Allows users to withdraw their stake before the lock period ends. An `EmergencyUnstaked` event is emitted, allowing a backend system to apply a score penalty.
-- **Admin Controls**: Secure functions for the contract owner to manage registered projects and valid staking durations.
+- **Role-Based Access Control**: Uses `AccessControlEnumerable` for fine-grained permissions.
+    - `DEFAULT_ADMIN_ROLE`: Can grant and revoke roles.
+    - `MANAGER_ROLE`: Can manage registered projects, staking durations, and project-specific settings.
 - **Event-Driven**: Emits detailed events for `Staked`, `Unstaked`, and `EmergencyUnstaked` actions, simplifying backend integration for indexing and scoring.
 
 ## Project Structure
@@ -16,15 +19,15 @@ This repository contains the EVM-compatible smart contracts for the AIM Launchpa
 ```
 .
 ├── contracts/
-│   ├── AimStakingEvm.sol  # The main staking contract
-│   └── mocks/
-│       └── MockERC20.sol    # A mock ERC20 token for testing
+│   └── pool/
+│       └── AimStaking.sol      # The main upgradeable staking contract
 ├── scripts/
-│   └── deploy.ts          # Script for deploying the contracts
-├── test/
-│   └── AimStakingEvm.ts   # Tests for the staking contract
-├── hardhat.config.ts      # Hardhat configuration file
-└── package.json           # Project dependencies
+│   ├── deployProxy.ts          # Script for deploying the contract as a proxy
+│   ├── upgrade.ts              # Script for upgrading the contract implementation
+│   ├── verify.ts               # Script for verifying the implementation on Etherscan
+│   └── deploy.ts               # Script for a simple, non-upgradeable deployment
+├── hardhat.config.ts           # Hardhat configuration file
+└── package.json                # Project dependencies
 ```
 
 ## Getting Started
@@ -59,54 +62,56 @@ To compile the smart contracts and generate TypeChain artifacts, run:
 npx hardhat compile
 ```
 
-### Run Tests
+### Deploying the Upgradeable Contract
 
-To ensure the contracts are working as expected, run the test suite:
+The standard deployment process uses an upgradeable proxy.
+
+#### 1. Deploy the Proxy
+
+The `scripts/deployProxy.ts` script deploys the `AimStaking` contract as a UUPS proxy.
+
+- **Configure the admin**: Open `scripts/deployProxy.ts` and replace the placeholder `"=====Admin Address====="` with the wallet address that will have the `DEFAULT_ADMIN_ROLE` and `MANAGER_ROLE`.
+
+- **Run the deployment script**:
+    ```bash
+    npx hardhat run scripts/deployProxy.ts --network <your-network-name>
+    ```
+    This will deploy the proxy contract and its initial implementation, then print the proxy's address.
+
+#### 2. Upgrading the Contract
+
+To upgrade the contract to a new version:
+
+- **Deploy the new implementation**: Make your changes to `AimStaking.sol`.
+- **Update the upgrade script**: Open `scripts/upgrade.ts` and replace the placeholder `'=====Deployed Proxy Address====='` with the address of your deployed proxy contract.
+- **Run the upgrade script**:
+    ```bash
+    npx hardhat run scripts/upgrade.ts --network <your-network-name>
+    ```
+    This will deploy the new implementation and update the proxy to point to it.
+
+#### 3. Verifying the Contract on Etherscan
+
+After deployment or an upgrade, you must verify the **implementation** contract. The proxy itself does not need verification in the same way.
+
+- **Get the implementation address**: After running a deployment or upgrade, the new implementation address will be stored in the `.openzeppelin` directory in a file corresponding to your network (e.g., `.openzeppelin/sepolia.json`).
+- **Configure Hardhat**: Add your Etherscan API key to `hardhat.config.ts`.
+- **Update the verification script**: Open `scripts/verify.ts` and replace the placeholder `'=====Implementation Contract Address====='` with the new implementation address.
+- **Run the verification script**:
+    ```bash
+    npx hardhat run scripts/verify.ts --network <your-network-name>
+    ```
+
+### Non-Upgradeable Deployment (for Testing)
+
+The `scripts/deploy.ts` script provides a simple, non-upgradeable deployment of the `AimStaking` contract. This is useful for development and testing but is **not recommended for production**.
 
 ```bash
-npx hardhat test
+npx hardhat run scripts/deploy.ts --network <your-network-name>
 ```
-
-The tests cover various scenarios, including deployment, staking, regular unstaking, emergency unstaking, and admin functions.
-
-### Deploy Contracts
-
-The provided deployment script (`scripts/deploy.ts`) can be used to deploy the `AimStakingEvm` contract.
-
-1.  **Update the script**: The script currently deploys a `MockERC20` token for testing purposes. For a live deployment, you should update `scripts/deploy.ts` to use the address of your actual staking token.
-
-2.  **Configure your network**: Open `hardhat.config.ts` and add a configuration for your target network (e.g., Base, Ethereum Mainnet, or a testnet). You will need an RPC URL and a private key for deployment.
-
-    ```typescript
-    // example network configuration in hardhat.config.ts
-    // ...
-    networks: {
-      base_mainnet: {
-        url: "YOUR_RPC_URL",
-        accounts: ["YOUR_PRIVATE_KEY"],
-      },
-    },
-    // ...
-    ```
-
-3.  **Run the deployment script**:
-
-    ```bash
-    npx hardhat run scripts/deploy.ts --network <your-network-name>
-    ```
-
-    For example, to deploy to the `base_mainnet` network configured above:
-    ```bash
-    npx hardhat run scripts/deploy.ts --network base_mainnet
-    ```
-    The script will deploy the contracts and perform the initial setup (registering a default project and adding staking durations).
 
 ## Smart Contracts
 
-### `AimStakingEvm.sol`
+### `AimStaking.sol`
 
-This is the core contract that handles all staking logic. It is owned by an admin address that has exclusive rights to manage projects and staking options.
-
-### `mocks/MockERC20.sol`
-
-This is a simple ERC20 contract used for local testing and deployment simulation. It includes a `mint` function to create tokens for test accounts.
+This is the core contract that handles all staking logic. It is designed to be upgradeable and uses `AccessControlEnumerableUpgradeable` to manage permissions. The `MANAGER_ROLE` is responsible for administrative tasks, while the `DEFAULT_ADMIN_ROLE` can manage roles.
