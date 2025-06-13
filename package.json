@@ -21,7 +21,7 @@
   "files": [
     "typechain-types/"
   ],
-  "author": "BLACKCATS-TEAM",
+  "author": "AIM-TEAM",
   "license": "MIT",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
