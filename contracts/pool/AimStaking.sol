@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
