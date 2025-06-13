@@ -48,6 +48,7 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
     event ProjectStakingTokenSet(bytes32 indexed projectId, address tokenAddress);
 
     function initialize(address admin) external initializer {
+        __ReentrancyGuard_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
     }

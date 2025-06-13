@@ -8,6 +8,7 @@ function sleep(s: number) {
 
 async function main() {
   const constructorArgs: any[] = [
+    
   ];
   const contractName = "AimStaking";
   const factory = await ethers.getContractFactory(`contracts/pool/${contractName}.sol`);
