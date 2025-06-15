@@ -9,6 +9,8 @@ import "solidity-coverage";
 import "@nomiclabs/hardhat-ethers";
 import "@openzeppelin/hardhat-upgrades";
 
+
+
 const PRIVATE_KEY =
   process.env.PRIVATE_KEY! ||
   "c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3"; // well known private key
@@ -30,13 +32,13 @@ const config: any = {
   networks: {
     hardhat: {},
     localhost: {},
-    testnet: {
+    "base-sepolia": {
       url: "https://base-sepolia-rpc.publicnode.com",
       chainId: 84532,
       accounts: [PRIVATE_KEY]
     },
-    mainnet: {
-      url: "https://base.llamarpc.com",
+    base: {
+      url: "https://mainnet.base.org",
       chainId: 8453,
       accounts: [PRIVATE_KEY]
     },
@@ -55,9 +57,28 @@ const config: any = {
     },
   },
   etherscan: {
-    // Your API key for EtherScan
-    // Obtain one at https://etherscan.io/
-    apiKey: ETHERSCAN_API_KEY,
+    apiKey: {
+      base: ETHERSCAN_API_KEY,
+      "base-sepolia": ETHERSCAN_API_KEY,
+    },
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org"
+        }
+      },
+      {
+        network: "base-sepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api-sepolia.basescan.org/api",
+          browserURL: "https://sepolia.basescan.org"
+        }
+      }
+    ]
   },
 };
 

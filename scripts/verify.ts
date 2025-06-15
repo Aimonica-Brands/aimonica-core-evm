@@ -11,7 +11,7 @@ async function main() {
   // Verify the contract on Etherscan
   await hre.run("verify:verify", {
     address: '=====Implementation Contract Address=====',
-    contract: `contracts/pool/${contractName}.sol`,
+    contract: `contracts/pool/${contractName}.sol:${contractName}`,
     constructorArguments: [],
   });
 }
