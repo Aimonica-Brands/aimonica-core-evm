@@ -8,6 +8,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
+    address public feeWallet;
+    uint256 public unstakeFeeRate; // in basis points, e.g., 100 = 1%
+    uint256 public emergencyUnstakeFeeRate; // in basis points, e.g., 100 = 1%
+
     mapping(bytes32 => address) public projectStakingTokens;
 
     enum StakeStatus { Active, Unstaked, EmergencyUnstaked }
@@ -47,10 +51,33 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
     event EmergencyUnstaked(uint256 stakeId, address indexed user, uint256 amount);
     event ProjectStakingTokenSet(bytes32 indexed projectId, address tokenAddress);
 
+    event FeeWalletSet(address indexed newWallet);
+    event UnstakeFeeRateSet(uint256 newRate);
+    event EmergencyUnstakeFeeRateSet(uint256 newRate);
+
     function initialize(address admin) external initializer {
         __ReentrancyGuard_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
+        feeWallet = admin;
+    }
+
+    function setFeeWallet(address _feeWallet) external onlyRole(MANAGER_ROLE) {
+        require(_feeWallet != address(0), "Invalid fee wallet address");
+        feeWallet = _feeWallet;
+        emit FeeWalletSet(_feeWallet);
+    }
+
+    function setUnstakeFeeRate(uint256 _unstakeFeeRate) external onlyRole(MANAGER_ROLE) {
+        require(_unstakeFeeRate <= 10000, "Fee rate cannot exceed 100%");
+        unstakeFeeRate = _unstakeFeeRate;
+        emit UnstakeFeeRateSet(_unstakeFeeRate);
+    }
+
+    function setEmergencyUnstakeFeeRate(uint256 _emergencyUnstakeFeeRate) external onlyRole(MANAGER_ROLE) {
+        require(_emergencyUnstakeFeeRate <= 10000, "Fee rate cannot exceed 100%");
+        emergencyUnstakeFeeRate = _emergencyUnstakeFeeRate;
+        emit EmergencyUnstakeFeeRateSet(_emergencyUnstakeFeeRate);
     }
 
     function setProjectStakingToken(bytes32 projectId, address stakingTokenAddress) external onlyRole(MANAGER_ROLE) {
@@ -123,7 +150,17 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         require(block.timestamp >= userStake.unlockedAt, "Stake still locked");
 
         userStake.status = StakeStatus.Unstaked;
-        IERC20(userStake.stakingToken).transfer(msg.sender, userStake.amount);
+
+        uint256 amountToUnstake = userStake.amount;
+        if (unstakeFeeRate > 0 && feeWallet != address(0)) {
+            uint256 fee = (amountToUnstake * unstakeFeeRate) / 10000;
+            if (fee > 0) {
+                IERC20(userStake.stakingToken).transfer(feeWallet, fee);
+            }
+            amountToUnstake -= fee;
+        }
+
+        IERC20(userStake.stakingToken).transfer(msg.sender, amountToUnstake);
 
         emit Unstaked(stakeId, msg.sender, userStake.amount);
     }
@@ -134,7 +171,17 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         require(userStake.status == StakeStatus.Active, "Stake not active");
 
         userStake.status = StakeStatus.EmergencyUnstaked;
-        IERC20(userStake.stakingToken).transfer(msg.sender, userStake.amount);
+
+        uint256 amountToUnstake = userStake.amount;
+        if (emergencyUnstakeFeeRate > 0 && feeWallet != address(0)) {
+            uint256 fee = (amountToUnstake * emergencyUnstakeFeeRate) / 10000;
+            if (fee > 0) {
+                IERC20(userStake.stakingToken).transfer(feeWallet, fee);
+            }
+            amountToUnstake -= fee;
+        }
+
+        IERC20(userStake.stakingToken).transfer(msg.sender, amountToUnstake);
 
         emit EmergencyUnstaked(stakeId, msg.sender, userStake.amount);
     }
