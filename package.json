@@ -24,6 +24,7 @@
   "author": "AIM-TEAM",
   "license": "MIT",
   "devDependencies": {
+    "@animoca/ethereum-contracts": "^4.2.1",
     "@nomicfoundation/hardhat-verify": "^2.0.14",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-waffle": "^2.0.6",
