@@ -2,7 +2,7 @@
 
 ## Changelog
 
-- **Version 1.0.1 (Current)**: Initial version of the staking contract.
+- **Version 1.0.1 (2025-06-22)**: Initial version of the staking contract.
 
 ## Project outline
 
