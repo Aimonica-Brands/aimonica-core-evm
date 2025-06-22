@@ -1,18 +1,242 @@
 # AIM Launchpad EVM Staking Contracts
 
-This repository contains the EVM-compatible smart contracts for the AIM Launchpad, a multi-chain staking platform. The `AimStaking` contract is designed to be deployed on EVM chains and is upgradeable using the OpenZeppelin UUPS proxy pattern.
+This repository contains the EVM-compatible smart contracts for the AIM Launchpad, a multi-chain staking platform. The `AimStaking` contract is designed to be deployed on EVM chains and is upgradeable using the OpenZeppelin UUPS proxy pattern, ensuring that the contract logic can be updated without data migration.
 
-## Features
+## Table of Contents
 
-- **Multi-Project Staking**: Each registered project can have its own ERC20 staking token.
-- **Upgradeable**: The contract logic can be upgraded without migrating user data, ensuring future-proof functionality.
-- **Time-Locked Staking**: Supports fixed staking durations (e.g., 7, 14, 30 days), configurable by the contract manager.
-- **Stake Metadata**: Stores essential data for each stake, including amount, timestamp, duration, and project ID.
-- **Emergency Unstake**: Allows users to withdraw their stake before the lock period ends. An `EmergencyUnstaked` event is emitted, allowing a backend system to apply a score penalty.
-- **Role-Based Access Control**: Uses `AccessControlEnumerable` for fine-grained permissions.
-    - `DEFAULT_ADMIN_ROLE`: Can grant and revoke roles.
-    - `MANAGER_ROLE`: Can manage registered projects, staking durations, and project-specific settings.
-- **Event-Driven**: Emits detailed events for `Staked`, `Unstaked`, and `EmergencyUnstaked` actions, simplifying backend integration for indexing and scoring.
+- [AIM Launchpad EVM Staking Contracts](#aim-launchpad-evm-staking-contracts)
+  - [Table of Contents](#table-of-contents)
+  - [Technical Documentation](#technical-documentation)
+    - [Contract Architecture](#contract-architecture)
+    - [Core Concepts](#core-concepts)
+    - [Roles (Access Control)](#roles-access-control)
+    - [State Variables & Data Structures](#state-variables--data-structures)
+    - [Functions](#functions)
+    - [Events](#events)
+  - [Deployment and Operations Guide](#deployment-and-operations-guide)
+    - [Prerequisites](#prerequisites)
+    - [1. Setup](#1-setup)
+    - [2. Configuration](#2-configuration)
+    - [3. Compile](#3-compile)
+    - [4. Deploy](#4-deploy)
+    - [5. Upgrade](#5-upgrade)
+    - [6. Verify on Etherscan](#6-verify-on-etherscan)
+  - [Project Structure](#project-structure)
+
+## Technical Documentation
+
+### Contract Architecture
+
+-   **AimStaking.sol**: The core contract containing all staking logic.
+-   **Upgradeable Design (UUPS)**: The contract uses the UUPS (Universal Upgradeable Proxy Standard) pattern. This means the contract is deployed behind a proxy, and the logic contract (implementation) can be swapped out for a new one. This allows for seamless upgrades to add features or fix bugs without affecting user data or requiring migration.
+-   **Security**: Inherits from OpenZeppelin's `AccessControlEnumerableUpgradeable` for role-based permissions and `ReentrancyGuardUpgradeable` to prevent re-entrancy attacks.
+
+### Core Concepts
+
+-   **Projects**: The platform supports multiple staking projects. Each project is identified by a unique `bytes32 projectId`. A manager must register a project before users can stake in it.
+-   **Staking Tokens**: Each registered project has its own designated ERC20 token for staking. The token address must be set by a manager for the corresponding project.
+-   **Staking Durations**: The contract supports fixed-term staking. A manager can define a list of allowed staking durations (e.g., 7, 30, 90 days). Users must choose from one of these predefined durations when staking.
+-   **Fees**:
+    -   `unstakeFeeRate`: A percentage fee taken on a normal unstake after the lock period.
+    -   `emergencyUnstakeFeeRate`: A percentage fee (typically higher) for withdrawing a stake before the lock period expires.
+    -   Fees are specified in basis points (100 = 1%) and are sent to a designated `feeWallet`.
+
+### Roles (Access Control)
+
+The contract is governed by two main roles:
+
+-   `DEFAULT_ADMIN_ROLE`: The highest level of authority. This role can grant and revoke any role, including `MANAGER_ROLE` and itself. It is critical to keep the address holding this role secure.
+-   `MANAGER_ROLE`: This role handles the day-to-day administration of the staking platform. Responsibilities include:
+    -   Managing projects (registering, unregistering).
+    -   Setting the staking token for each project.
+    -   Managing allowed staking durations.
+    -   Configuring fee rates and the fee wallet.
+
+### State Variables & Data Structures
+
+-   `Stake`: A `struct` that stores all information for a single stake, including `stakeId`, `user`, `amount`, `projectId`, `stakedAt`, `unlockedAt`, and `status`.
+-   `StakeStatus`: An `enum` to track the state of a stake (`Active`, `Unstaked`, `EmergencyUnstaked`).
+-   `stakes`: `mapping(uint256 => Stake)` a mapping from a stake ID to the `Stake` struct.
+-   `projectStakingTokens`: `mapping(bytes32 => address)` a mapping from a project ID to its designated ERC20 staking token address.
+-   `registeredProjects`: `mapping(bytes32 => bool)` tracks whether a project ID is valid.
+-   `durationOptions`: `mapping(uint256 => bool)` tracks valid staking durations in days.
+
+### Functions
+
+#### User-Facing Functions
+
+-   `stake(uint256 amount, uint256 durationInDays, bytes32 projectId)`: Stakes a specified `amount` of the project's token for the user.
+-   `unstake(uint256 stakeId)`: Withdraws a stake after its lock period has ended.
+-   `emergencyUnstake(uint256 stakeId)`: Withdraws a stake before its lock period has ended, subject to a penalty fee.
+-   `getUserStakes(address user)`: Returns an array of IDs for all stakes made by a user.
+-   `getActiveUserStakes(address user)`: Returns an array of IDs for a user's currently active stakes.
+
+#### Manager-Facing Functions (`onlyRole(MANAGER_ROLE)`)
+
+-   `setFeeWallet(address _feeWallet)`: Sets the wallet address where fees are collected.
+-   `setUnstakeFeeRate(uint256 _unstakeFeeRate)`: Sets the fee for normal unstaking.
+-   `setEmergencyUnstakeFeeRate(uint256 _emergencyUnstakeFeeRate)`: Sets the fee for emergency unstaking.
+-   `registerProject(bytes32 projectId)` / `unregisterProject(bytes32 projectId)`: Manages the lifecycle of a project.
+-   `setProjectStakingToken(bytes32 projectId, address stakingTokenAddress)`: Assigns an ERC20 token to a project.
+-   `addDurationOption(uint256 durationInDays)` / `removeDurationOption(uint256 durationInDays)`: Manages the available staking lock-up periods.
+
+### Events
+
+The contract emits events for all significant actions, allowing for easy off-chain monitoring and backend integration.
+
+-   `Staked(uint256 stakeId, address indexed user, ...)`
+-   `Unstaked(uint256 stakeId, address indexed user, ...)`
+-   `EmergencyUnstaked(uint256 stakeId, address indexed user, ...)`
+-   `ProjectRegistered(bytes32 projectId)` / `ProjectUnregistered(bytes32 projectId)`
+-   `ProjectStakingTokenSet(bytes32 indexed projectId, address tokenAddress)`
+-   `DurationOptionAdded(uint256 duration)` / `DurationOptionRemoved(uint256 duration)`
+-   `FeeWalletSet(address indexed newWallet)`
+
+## Deployment and Operations Guide
+
+### Prerequisites
+
+-   [Node.js](https://nodejs.org/en/) (v18 or higher)
+-   [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+-   Git
+
+### 1. Setup
+
+Clone the repository and install the required dependencies.
+
+```bash
+git clone <repository-url>
+cd aimonica-core-evm
+npm install
+```
+
+### 2. Configuration
+
+All configuration is managed in `hardhat.config.ts`. You must edit this file to set up your target network and Etherscan API key for verification.
+
+```typescript
+// hardhat.config.ts
+
+// ...
+  networks: {
+    sepolia: { // Example network
+      url: "https://rpc.sepolia.org", // Replace with your RPC endpoint
+      accounts: ["YOUR_PRIVATE_KEY_HERE"], // Replace with the private key of the deployer wallet
+    },
+  },
+  etherscan: {
+    apiKey: "YOUR_ETHERSCAN_API_KEY", // Replace with your Etherscan API key
+  },
+// ...
+```
+
+**Security Warning**: Hardcoding private keys is highly insecure and not recommended for production. Consider using a secure method like environment variables (e.g., with `dotenv`) to handle sensitive data.
+
+### 3. Compile
+
+Compile the smart contracts and generate TypeChain artifacts. This step ensures your contracts are ready for deployment and that all type definitions are up-to-date.
+
+```bash
+npx hardhat compile
+```
+
+### 4. Deploy
+
+The contract is deployed as a UUPS proxy using the `deployProxy.ts` script.
+
+**Action Required**:
+1.  Open the `scripts/deployProxy.ts` file.
+2.  Locate the `initializeArgs` array.
+3.  Replace the placeholder `"=====Admin Address====="` with the wallet address that will receive the `DEFAULT_ADMIN_ROLE` and `MANAGER_ROLE`. This address will have full control over the contract.
+
+```typescript
+// scripts/deployProxy.ts
+const initializeArgs: any[] = [
+  "0xYourAdminWalletAddressHere" // <--- EDIT THIS LINE
+];
+```
+
+**Deploy Command**:
+Run the following command, replacing `<your-network-name>` with the network key you configured in `hardhat.config.ts` (e.g., `sepolia`).
+
+```bash
+npx hardhat run scripts/deployProxy.ts --network <your-network-name>
+```
+
+Upon successful execution, the script will print the **proxy contract address**. Save this address, as you will need it for upgrades and interaction.
+
+```
+AimStaking contract successfully deployed: 0xProxyContractAddress...
+```
+
+### 5. Upgrade
+
+To upgrade the contract, you first make changes to `AimStaking.sol`, and then run the `upgrade.ts` script.
+
+**Action Required**:
+1.  Open the `scripts/upgrade.ts` file.
+2.  Replace the placeholder `'=====Deployed Proxy Address====='` with the proxy address you received during deployment.
+
+```typescript
+// scripts/upgrade.ts
+await upgrades.upgradeProxy('0xProxyContractAddress...', factory); // <--- EDIT THIS LINE
+```
+
+**Upgrade Command**:
+Run the script to deploy the new implementation and link it to the existing proxy.
+
+```bash
+npx hardhat run scripts/upgrade.ts --network <your-network-name>
+```
+
+### 6. Verify on Etherscan
+
+After deploying or upgrading, you must verify the **implementation contract**, not the proxy.
+
+**How to find the Implementation Address**:
+The implementation address is stored by the OpenZeppelin upgrades plugin in the `.openzeppelin` directory. After deploying to a network, a JSON file for that network will be created (e.g., `.openzeppelin/sepolia.json`). Open it and find the `address` field under your contract—this is the latest implementation address.
+
+```json
+// .openzeppelin/sepolia.json (example)
+{
+  "proxies": [
+    {
+      "address": "0xProxyContractAddress...",
+      "txHash": "...",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "ab12cdef...": { // Previous implementation version
+      "address": "0xOldImplementationAddress...",
+      "layout": { ... }
+    },
+    "1234abcd...": { // Current implementation version
+      "address": "0xNewImplementationAddress...", // <-- THIS IS THE ADDRESS YOU NEED
+      "layout": { ... }
+    }
+  }
+}
+```
+
+**Action Required**:
+1.  Open the `scripts/verify.ts` file.
+2.  Replace the placeholder `'=====Implementation Contract Address====='` with the implementation address you found.
+
+```typescript
+// scripts/verify.ts
+await hre.run("verify:verify", {
+  address: '0xNewImplementationAddress...', // <--- EDIT THIS LINE
+  // ...
+});
+```
+
+**Verification Command**:
+Run the script to publish the source code on Etherscan.
+
+```bash
+npx hardhat run scripts/verify.ts --network <your-network-name>
+```
 
 ## Project Structure
 
@@ -29,89 +253,3 @@ This repository contains the EVM-compatible smart contracts for the AIM Launchpa
 ├── hardhat.config.ts           # Hardhat configuration file
 └── package.json                # Project dependencies
 ```
-
-## Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/en/) (v18 or higher recommended)
-- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
-
-### Installation
-
-1.  Clone the repository:
-    ```bash
-    git clone <repository-url>
-    ```
-2.  Navigate to the project directory:
-    ```bash
-    cd aimonica-core-evm
-    ```
-3.  Install the dependencies:
-    ```bash
-    npm install
-    ```
-
-## Usage
-
-### Compile Contracts
-
-To compile the smart contracts and generate TypeChain artifacts, run:
-
-```bash
-npx hardhat compile
-```
-
-### Deploying the Upgradeable Contract
-
-The standard deployment process uses an upgradeable proxy.
-
-#### 1. Deploy the Proxy
-
-The `scripts/deployProxy.ts` script deploys the `AimStaking` contract as a UUPS proxy.
-
-- **Configure the admin**: Open `scripts/deployProxy.ts` and replace the placeholder `"=====Admin Address====="` with the wallet address that will have the `DEFAULT_ADMIN_ROLE` and `MANAGER_ROLE`.
-
-- **Run the deployment script**:
-    ```bash
-    npx hardhat run scripts/deployProxy.ts --network <your-network-name>
-    ```
-    This will deploy the proxy contract and its initial implementation, then print the proxy's address.
-
-#### 2. Upgrading the Contract
-
-To upgrade the contract to a new version:
-
-- **Deploy the new implementation**: Make your changes to `AimStaking.sol`.
-- **Update the upgrade script**: Open `scripts/upgrade.ts` and replace the placeholder `'=====Deployed Proxy Address====='` with the address of your deployed proxy contract.
-- **Run the upgrade script**:
-    ```bash
-    npx hardhat run scripts/upgrade.ts --network <your-network-name>
-    ```
-    This will deploy the new implementation and update the proxy to point to it.
-
-#### 3. Verifying the Contract on Etherscan
-
-After deployment or an upgrade, you must verify the **implementation** contract. The proxy itself does not need verification in the same way.
-
-- **Get the implementation address**: After running a deployment or upgrade, the new implementation address will be stored in the `.openzeppelin` directory in a file corresponding to your network (e.g., `.openzeppelin/sepolia.json`).
-- **Configure Hardhat**: Add your Etherscan API key to `hardhat.config.ts`.
-- **Update the verification script**: Open `scripts/verify.ts` and replace the placeholder `'=====Implementation Contract Address====='` with the new implementation address.
-- **Run the verification script**:
-    ```bash
-    npx hardhat run scripts/verify.ts --network <your-network-name>
-    ```
-
-### Non-Upgradeable Deployment (for Testing)
-
-The `scripts/deploy.ts` script provides a simple, non-upgradeable deployment of the `AimStaking` contract. This is useful for development and testing but is **not recommended for production**.
-
-```bash
-npx hardhat run scripts/deploy.ts --network <your-network-name>
-```
-
-## Smart Contracts
-
-### `AimStaking.sol`
-
-This is the core contract that handles all staking logic. It is designed to be upgradeable and uses `AccessControlEnumerableUpgradeable` to manage permissions. The `MANAGER_ROLE` is responsible for administrative tasks, while the `DEFAULT_ADMIN_ROLE` can manage roles.
