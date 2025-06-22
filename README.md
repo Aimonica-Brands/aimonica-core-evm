@@ -35,7 +35,7 @@ This repository contains the EVM-compatible smart contracts for the AIM Launchpa
 
 -   **Projects**: The platform supports multiple staking projects. Each project is identified by a unique `bytes32 projectId`. A manager must register a project before users can stake in it.
 -   **Staking Tokens**: Each registered project has its own designated ERC20 token for staking. The token address must be set by a manager for the corresponding project.
--   **Staking Durations**: The contract supports fixed-term staking. A manager can define a list of allowed staking durations (e.g., 7, 30, 90 days). Users must choose from one of these predefined durations when staking.
+-   **Staking Durations**: The contract supports fixed-term staking. A manager can define a list of allowed staking durations (e.g., 7, 14, 30 days). Users must choose from one of these predefined durations when staking.
 -   **Fees**:
     -   `unstakeFeeRate`: A percentage fee taken on a normal unstake after the lock period.
     -   `emergencyUnstakeFeeRate`: A percentage fee (typically higher) for withdrawing a stake before the lock period expires.
