@@ -17,7 +17,7 @@ The `AimStaking` contract is a comprehensive multi-project, multi-duration ERC20
 - **Line Coverage**: 100% ✅
 - **Branch Coverage**: 95.95% ✅
 - **All Tests Passed**: ✅
-- **Test Execution Time**: ~28秒
+- **Test Execution Time**: ~28 seconds
 
 ### Test Categories
 
