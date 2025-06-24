@@ -4,5 +4,4 @@ build/
 typechain-types/
 artifacts/
 logs/
-coverage*
 .env
