@@ -253,3 +253,60 @@ npx hardhat run scripts/verify.ts --network <your-network-name>
 ├── hardhat.config.ts           # Hardhat configuration file
 └── package.json                # Project dependencies
 ```
+
+
+
+## Deployed Programs and Accounts (Mainnet)
+
+This section lists the contract addresses and related account information deployed on the BASE mainnet, captured from test execution.
+
+### `AimStaking` Contract
+
+*   **Proxy Contract Address**: `0x29ecDC454121184C5F06E0f067ae11aA2d43184f`
+*   **Implementation Contract Address**: `0xC1cbBAf6F6BB21E68434B10d6b81bF2e6C305786`
+
+### Key Actors & Wallets
+
+*   **Platform Administrator (Admin)**: `0xf379d24dCE0Bb73d87d3499D4F1cC87F0Bd0091F`
+    - Holds `DEFAULT_ADMIN_ROLE` and `MANAGER_ROLE`
+    - Can grant and revoke any role permissions
+*   **Project Manager**: `0xA30D18C731c9944F904fFB1011c17B75280d2A08`
+    - Holds `MANAGER_ROLE`
+    - Responsible for daily management operations
+*   **User Wallet**: `0x6716EEc26c82a8a025Cef05D301E0aF8cb8dA33D`
+*   **Fee Wallet**: `0x85287192f6436bD963Af7D9bf10Aed3751647570`
+
+### Staking Project: "demo"
+
+This project was registered and interacted with during the test run.
+
+*   **Project Name**: `demo`
+*   **Project ID**: `0x64656d6f00000000000000000000000000000000000000000000000000000000` 
+    - (keccak256 hash of the string "demo")
+*   **Staking Token Contract Address**: `0x3d1c275aa98d45c99258a51be98b08fc8572c074`
+*   **Staking Token Name**: `Baby Kibshi (BKIBSHI)`
+*   **Staking Token Initial Supply**: `1,000,000,000 BKIBSHI`
+
+### User Staking Data
+
+*   **User Token Balance**: `6495 BKIBSHI`
+*   **First Stake Information**:
+    - **Stake ID**: `1`
+    - **Stake Amount**: `100 BKIBSHI`
+    - **Staking Duration**: `7 days`
+    - **Stake Status**: `Active`
+*   **Second Stake Information**:
+    - **Stake ID**: `2`
+    - **Stake Amount**: `150 BKIBSHI`
+    - **Staking Duration**: `1 day`
+    - **Stake Status**: `EmergencyUnstake`
+
+### Platform Configuration & System Parameters
+
+*   **Regular Unstake Fee Rate**: `100` (1%)
+*   **Emergency Unstake Fee Rate**: `1000` (10%)
+*   **Supported Staking Duration Options**: 
+    - `1 day`
+    - `7 days`
+    - `14 days`
+    - `30 days`
