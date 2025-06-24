@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import "../pool/AimStaking.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
 
 /**
  * @title MaliciousReentrancy
