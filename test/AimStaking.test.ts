@@ -121,27 +121,36 @@ describe("AimStaking", function () {
 
     describe("Project Management", function () {
       it("should allow admin to register project", async function () {
-        await expect(aimStaking.registerProject(PROJECT_ID))
+        await expect(aimStaking.registerProject(PROJECT_ID, stakingToken.address))
           .to.emit(aimStaking, "ProjectRegistered")
-          .withArgs(PROJECT_ID);
+          .withArgs(PROJECT_ID)
+          .and.to.emit(aimStaking, "ProjectStakingTokenSet")
+          .withArgs(PROJECT_ID, stakingToken.address);
         
         expect(await aimStaking.registeredProjects(PROJECT_ID)).to.be.true;
+        expect(await aimStaking.projectStakingTokens(PROJECT_ID)).to.equal(stakingToken.address);
+      });
+
+      it("should not allow registering with zero address", async function () {
+        await expect(aimStaking.registerProject(PROJECT_ID, ethers.constants.AddressZero))
+          .to.be.revertedWith("AimStaking: Invalid staking token address");
       });
 
       it("should not allow registering duplicate project", async function () {
-        await aimStaking.registerProject(PROJECT_ID);
-        await expect(aimStaking.registerProject(PROJECT_ID))
+        await aimStaking.registerProject(PROJECT_ID, stakingToken.address);
+        await expect(aimStaking.registerProject(PROJECT_ID, stakingToken.address))
           .to.be.revertedWith("Project already registered");
       });
 
       it("should allow admin to unregister project", async function () {
-        await aimStaking.registerProject(PROJECT_ID);
+        await aimStaking.registerProject(PROJECT_ID, stakingToken.address);
         
         await expect(aimStaking.unregisterProject(PROJECT_ID))
           .to.emit(aimStaking, "ProjectUnregistered")
           .withArgs(PROJECT_ID);
         
         expect(await aimStaking.registeredProjects(PROJECT_ID)).to.be.false;
+        expect(await aimStaking.projectStakingTokens(PROJECT_ID)).to.equal(ethers.constants.AddressZero);
       });
 
       it("should not allow unregistering non-existent project", async function () {
@@ -150,10 +159,10 @@ describe("AimStaking", function () {
       });
 
       it("should not allow non-admin to manage projects", async function () {
-        await expect(aimStaking.connect(user1).registerProject(PROJECT_ID))
+        await expect(aimStaking.connect(user1).registerProject(PROJECT_ID, stakingToken.address))
           .to.be.reverted;
         
-        await aimStaking.registerProject(PROJECT_ID);
+        await aimStaking.registerProject(PROJECT_ID, stakingToken.address);
         await expect(aimStaking.connect(user1).unregisterProject(PROJECT_ID))
           .to.be.reverted;
       });

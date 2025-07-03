@@ -158,14 +158,18 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
     }
 
     /**
-     * @dev Registers a new project.
+     * @dev Registers a new project and sets its staking token.
      * Can only be called by an address with the MANAGER_ROLE.
      * @param projectId The ID of the project to register.
+     * @param stakingTokenAddress The address of the ERC20 token for staking.
      */
-    function registerProject(bytes32 projectId) external onlyRole(MANAGER_ROLE) {
+    function registerProject(bytes32 projectId, address stakingTokenAddress) external onlyRole(MANAGER_ROLE) {
         require(!registeredProjects[projectId], "Project already registered");
+        require(stakingTokenAddress != address(0), "AimStaking: Invalid staking token address");
         registeredProjects[projectId] = true;
+        projectStakingTokens[projectId] = stakingTokenAddress;
         emit ProjectRegistered(projectId);
+        emit ProjectStakingTokenSet(projectId, stakingTokenAddress);
     }
 
     /**
@@ -176,6 +180,7 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
     function unregisterProject(bytes32 projectId) external onlyRole(MANAGER_ROLE) {
         require(registeredProjects[projectId], "Project not registered");
         registeredProjects[projectId] = false;
+        delete projectStakingTokens[projectId];
         emit ProjectUnregistered(projectId);
     }
 

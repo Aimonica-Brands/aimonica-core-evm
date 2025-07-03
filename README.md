@@ -76,8 +76,9 @@ The contract is governed by two main roles:
 -   `setFeeWallet(address _feeWallet)`: Sets the wallet address where fees are collected.
 -   `setUnstakeFeeRate(uint256 _unstakeFeeRate)`: Sets the fee for normal unstaking.
 -   `setEmergencyUnstakeFeeRate(uint256 _emergencyUnstakeFeeRate)`: Sets the fee for emergency unstaking.
--   `registerProject(bytes32 projectId)` / `unregisterProject(bytes32 projectId)`: Manages the lifecycle of a project.
--   `setProjectStakingToken(bytes32 projectId, address stakingTokenAddress)`: Assigns an ERC20 token to a project.
+-   `registerProject(bytes32 projectId, address stakingTokenAddress)`: Registers a new project and assigns its designated staking token.
+-   `unregisterProject(bytes32 projectId)`: Deactivates a project and clears its staking token assignment.
+-   `setProjectStakingToken(bytes32 projectId, address stakingTokenAddress)`: Allows updating the staking token for an already registered project.
 -   `addDurationOption(uint256 durationInDays)` / `removeDurationOption(uint256 durationInDays)`: Manages the available staking lock-up periods.
 
 ### Events
