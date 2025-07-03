@@ -20,7 +20,7 @@ const config: any = {
   defaultNetwork: "hardhat",
   solidity: {
     compilers: [{
-      version: "0.8.21", settings: {
+      version: "0.8.28", settings: {
         viaIR: true,
         optimizer: {
           enabled: true,
