@@ -2,7 +2,7 @@
 
 ## Changelog
 
-- **Version 1.0.1 (2025-06-22)**: Initial version of the staking contract.
+- **Version 1.0.2 (2025-07-10)**: Initial version of the staking contract.
 
 ## Project outline
 
@@ -17,9 +17,41 @@ This project provides a generalized, upgradeable ERC20 token staking contract na
     -   The contract interacts with various ERC20 token contracts, which are specified on a per-project basis by a contract manager.
 -   **Cross-chain:** There is no native cross-chain functionality involved in the current design.
 
-## Scope
+## Smart contracts design
 
-The scope of this audit covers all write and security-relevant read operations of the `AimStaking.sol` smart contract.
+The solution consists of three main components: the `AimStaking` logic contract, a `TransparentUpgradeableProxy` for upgradeability, and a `ProxyAdmin` contract to manage the proxy.
+
+### 1. AimStaking Contract (`AimStaking.sol`)
+
+This is the logic contract containing all the core staking features.
+
+-   **Solidity Version:** `0.8.21`
+-   **External Dependencies:**
+    -   `@openzeppelin/contracts-upgradeable`: For `AccessControlEnumerableUpgradeable` (role-based access control), `ReentrancyGuardUpgradeable` (security), and `Initializable` (for upgradeable constructor logic).
+    -   `@animoca/ethereum-contracts`: For the `IERC20` interface.
+-   **Design:**
+    -   The contract is **upgradeable** using the UUPS proxy pattern via OpenZeppelin's Hardhat Upgrades plugin.
+    -   It serves as a vault for various ERC20 tokens staked by users.
+    -   It uses a `struct Stake` to track individual stake details, including user, amount, project, and lock-up duration.
+    -   It uses `AccessControl` for managing permissions.
+-   **Standards Followed:**
+    -   Interacts with tokens that follow the **ERC20** standard.
+
+#### Privileged Roles
+
+-   **`DEFAULT_ADMIN_ROLE`**: This is the highest authority within the `AimStaking` contract. This role can manage other roles (grant/revoke) and is the only one that can authorize contract upgrades via the UUPS mechanism.
+    -   **Holder(s):** A single external account (EOA) or a Multi-Sig wallet, specified during deployment.
+    -   **Capabilities:** Grant/revoke any role, perform contract upgrades.
+-   **`MANAGER_ROLE`**: This role is responsible for the operational management of the staking contract.
+    -   **Holder(s):** Initially granted to the same address as the `DEFAULT_ADMIN_ROLE`. The admin can grant this role to other addresses.
+    -   **Capabilities:**
+        -   Set the fee-collecting wallet address.
+        -   Set the regular and emergency unstake fee rates.
+        -   Register/unregister projects.
+        -   Define the specific ERC20 token for each project.
+        -   Add/remove valid staking durations.
+
+#### Functions in Scope
 
 **Write Operations / Signed Transactions:**
 
@@ -40,13 +72,7 @@ The scope of this audit covers all write and security-relevant read operations o
     -   `grantRole(role, account)`
     -   `revokeRole(role, account)`
     -   `renounceRole(role, account)`
-    -   Contract upgrades (performed by the deployer account, which should be the admin).
-
-**Contract upgrades (performed by the deployer account, which should be the admin).**
-
--   upgrade(proxyAddress, newImplementationAddress): This function is called on the ProxyAdmin contract to point the proxy to a new logic contract address. The scripts/upgrade.ts script in your project likely encapsulates this operation.
--   changeProxyAdmin(proxyAddress, newAdminAddress): Transfers the administrative control of a specific proxy contract to a new ProxyAdmin contract or address.
--   transferOwnership(newOwner): Transfers the ownership of the ProxyAdmin contract itself.
+    -   Contract upgrades (authorized by the admin).
 
 **Security-Relevant Read Operations:**
 
@@ -54,35 +80,19 @@ The scope of this audit covers all write and security-relevant read operations o
 -   `getUserStakes(user)`: Reading all stake IDs for a user.
 -   `getActiveUserStakes(user)`: Reading active stakes, which could be used by a UI to determine user actions.
 
-## Smart contracts design
+### 2. Proxy Contract (`TransparentUpgradeableProxy`)
 
-The solution consists of a single primary contract, `AimStaking`.
+This contract, from OpenZeppelin, holds the project's state and is the public-facing address that users interact with. It delegates all logic calls to the `AimStaking` implementation contract.
 
--   **Contract Name:** `AimStaking.sol`
--   **Solidity Version:** `0.8.21`
--   **External Dependencies:**
-    -   `@openzeppelin/contracts-upgradeable`: For `AccessControlEnumerableUpgradeable` (role-based access control), `ReentrancyGuardUpgradeable` (security), and `Initializable` (for upgradeable constructor logic).
-    -   `@animoca/ethereum-contracts`: For the `IERC20` interface.
--   **Design:**
-    -   The contract is **upgradeable** using the UUPS proxy pattern via OpenZeppelin's Hardhat Upgrades plugin.
-    -   It serves as a vault for various ERC20 tokens staked by users.
-    -   It uses a `struct Stake` to track individual stake details, including user, amount, project, and lock-up duration.
-    -   It uses `AccessControl` for managing permissions.
+### 3. ProxyAdmin Contract
 
--   **Privileged Roles:**
-    -   **`DEFAULT_ADMIN_ROLE`**: This is the highest authority. This role can manage other roles (grant/revoke) and is the only one that can authorize contract upgrades.
-        -   **Holder(s):** A single external account (EOA) or a Multi-Sig wallet, specified during deployment.
-        -   **Capabilities:** Grant/revoke any role, perform contract upgrades.
-    -   **`MANAGER_ROLE`**: This role is responsible for the operational management of the staking contract.
-        -   **Holder(s):** Initially granted to the same address as the `DEFAULT_ADMIN_ROLE`. The admin can grant this role to other addresses.
-        -   **Capabilities:**
-            -   Set the fee-collecting wallet address.
-            -   Set the regular and emergency unstake fee rates.
-            -   Register/unregister projects.
-            -   Define the specific ERC20 token for each project.
-            -   Add/remove valid staking durations.
--   **Standards Followed:**
-    -   Interacts with tokens that follow the **ERC20** standard.
+This contract, also from OpenZeppelin, is the owner of the Proxy contract. It is the only address that can upgrade the proxy to point to a new implementation address.
+
+**Privileged Actions (ProxyAdmin Owner):**
+
+-   `upgrade(proxyAddress, newImplementationAddress)`: This function is called on the `ProxyAdmin` contract to point the proxy to a new logic contract address. The `scripts/upgrade.ts` script encapsulates this operation.
+-   `changeProxyAdmin(proxyAddress, newAdminAddress)`: Transfers the administrative control of a specific proxy contract to a new `ProxyAdmin` contract or address.
+-   `transferOwnership(newOwner)`: Transfers the ownership of the `ProxyAdmin` contract itself.
 
 ## Migrations design
 
@@ -102,7 +112,8 @@ There is no frontend component within this project's scope. Users are expected t
 
 *This section duplicates information from "Smart contracts design" but is kept for structural compliance with the template.*
 
--   **`DEFAULT_ADMIN_ROLE`**: The ultimate controller of the contract, responsible for assigning roles and executing upgrades.
+-   **`ProxyAdmin Owner`**: The owner of the `ProxyAdmin` contract. This is the highest level of authority and the only role capable of executing contract upgrades by pointing the proxy to a new implementation. This role should be held by the `Contract Deployer/Admin` multi-sig wallet.
+-   **`DEFAULT_ADMIN_ROLE`**: The ultimate controller of the `AimStaking` contract's internal functions, responsible for assigning roles and authorizing an upgrade from within the logic contract. The upgrade must still be executed by the `ProxyAdmin Owner`.
 -   **`MANAGER_ROLE`**: Manages the day-to-day operational parameters of the staking pools.
 
 ---
