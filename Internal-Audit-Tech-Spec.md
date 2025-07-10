@@ -42,11 +42,16 @@ The scope of this audit covers all write and security-relevant read operations o
     -   `renounceRole(role, account)`
     -   Contract upgrades (performed by the deployer account, which should be the admin).
 
+**Contract upgrades (performed by the deployer account, which should be the admin).**
+
+-   upgrade(proxyAddress, newImplementationAddress): This function is called on the ProxyAdmin contract to point the proxy to a new logic contract address. The scripts/upgrade.ts script in your project likely encapsulates this operation.
+-   changeProxyAdmin(proxyAddress, newAdminAddress): Transfers the administrative control of a specific proxy contract to a new ProxyAdmin contract or address.
+-   transferOwnership(newOwner): Transfers the ownership of the ProxyAdmin contract itself.
+
 **Security-Relevant Read Operations:**
 
 -   `stakes(stakeId)`: Reading details of a specific stake.
 -   `getUserStakes(user)`: Reading all stake IDs for a user.
--
 -   `getActiveUserStakes(user)`: Reading active stakes, which could be used by a UI to determine user actions.
 
 ## Smart contracts design
@@ -108,9 +113,9 @@ There is no frontend component within this project's scope. Users are expected t
 
 | Wallet Name              | Type                      | Access List                               | Security Measures                                                                                               |
 | ------------------------ | ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Contract Deployer/Admin**  | EOA or Multi-Sig (Recommended) | Project's core technical/security team. | **MUST** be a hardware wallet or a Gnosis Safe Multi-Sig (e.g., 2-of-3 signature scheme) to prevent a single point of failure. |
-| **Manager Wallet**       | EOA or Multi-Sig (Recommended) | Project's operational team.           | Should be a Multi-Sig for any significant operations. Can be a separate, less-privileged wallet than the Admin.      |
-| **Fee Wallet**           | EOA or Multi-Sig (Recommended) | Project's finance/treasury team.      | **MUST** be a secure, audited Multi-Sig wallet. Access should be strictly controlled.                       |
+| **Contract Deployer/Admin**  | Multi-Sig | Project's core technical/security team. | **MUST** be a hardware wallet or a Gnosis Safe Multi-Sig (e.g., 2-of-3 signature scheme) to prevent a single point of failure. |
+| **Manager Wallet**       | Multi-Sig | Project's operational team.           | Should be a Multi-Sig for any significant operations. Can be a separate, less-privileged wallet than the Admin.      |
+| **Fee Wallet**           | Multi-Sig | Project's finance/treasury team.      | **MUST** be a secure, audited Multi-Sig wallet. Access should be strictly controlled.                       |
 
 ### Supported User Wallets
 
