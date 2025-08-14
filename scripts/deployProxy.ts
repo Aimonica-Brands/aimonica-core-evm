@@ -17,7 +17,7 @@ async function main() {
   const factory = await ethers.getContractFactory(contractName);
 
   // Deploy the contract with constructor arguments
-  const contract = await upgrades.deployProxy(factory, initializeArgs, { initializer: "initialize" });
+  const contract = await upgrades.deployProxy(factory, initializeArgs, { initializer: "initialize", kind: "uups" });
 
   // Wait for the contract to be deployed
   await contract.deployed();

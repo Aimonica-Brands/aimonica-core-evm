@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
 
 /**
@@ -11,7 +12,7 @@ import "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol"
  * It allows project managers to define staking parameters and collect fees.
  * This contract is upgradeable.
  */
-contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
+contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
     /**
      * @dev Role identifier for managers who can configure staking parameters.
      */
@@ -105,6 +106,8 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
      * @param admin The address to be granted the default admin and manager roles.
      */
     function initialize(address admin) external initializer {
+        __UUPSUpgradeable_init();
+        __AccessControlEnumerable_init();
         __ReentrancyGuard_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MANAGER_ROLE, admin);
@@ -349,4 +352,8 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         }
         return activeStakes;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+
+    uint256[50] private __gap; // Storage gap for future upgrades
 } 
