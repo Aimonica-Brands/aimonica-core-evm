@@ -285,6 +285,7 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         Stake storage userStake = stakes[stakeId];
         require(userStake.user == msg.sender, "Not stake owner");
         require(userStake.status == StakeStatus.Active, "Stake not active");
+        require(block.timestamp < userStake.unlockedAt, "Lockup period ended, use regular unstake");
 
         userStake.status = StakeStatus.EmergencyUnstaked;
 
