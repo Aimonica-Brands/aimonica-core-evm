@@ -44,14 +44,17 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
      * @dev Represents a single stake instance.
      */
     struct Stake {
+        // Full 32-byte fields
         uint256 stakeId;      // Unique identifier for the stake.
-        address user;         // The address of the staker.
         uint256 amount;       // The amount of tokens staked.
         bytes32 projectId;    // The project for which the tokens are staked.
-        address stakingToken; // The address of the staked ERC20 token.
         uint256 stakedAt;     // Timestamp of when the stake was created.
         uint256 duration;     // The lock-up duration in seconds.
         uint256 unlockedAt;   // Timestamp when the stake becomes unlockable.
+
+        // Packable fields smaller than 32 bytes
+        address stakingToken; // The address of the staked ERC20 token.
+        address user;         // The address of the staker.
         StakeStatus status;   // The current status of the stake.
     }
 
