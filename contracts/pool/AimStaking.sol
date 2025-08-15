@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
 
 /**
  * @title AimStaking
@@ -12,6 +12,8 @@ import "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol"
  * This contract is upgradeable.
  */
 contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
+    using SafeERC20 for IERC20;
+
     /**
      * @dev Role identifier for managers who can configure staking parameters.
      */
@@ -221,7 +223,9 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         require(stakingTokenAddress != address(0), "Staking token not set for project");
 
         // Transfer tokens from the user to this contract
-        IERC20(stakingTokenAddress).transferFrom(msg.sender, address(this), amount);
+        uint256 beforeBalance = IERC20(stakingTokenAddress).balanceOf(address(this));
+        IERC20(stakingTokenAddress).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 actualReceived = IERC20(stakingTokenAddress).balanceOf(address(this)) - beforeBalance;
 
         // Create and store the new stake
         uint256 stakeId = ++_stakeCounter;
@@ -231,7 +235,7 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         stakes[stakeId] = Stake({
             stakeId: stakeId,
             user: msg.sender,
-            amount: amount,
+            amount: actualReceived,
             projectId: projectId,
             stakingToken: stakingTokenAddress,
             stakedAt: block.timestamp,
@@ -244,7 +248,7 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         userStakes[msg.sender].push(stakeId);
         projectStakes[projectId].push(stakeId);
 
-        emit Staked(stakeId, msg.sender, amount, projectId, durationInSeconds);
+        emit Staked(stakeId, msg.sender, actualReceived, projectId, durationInSeconds);
     }
 
     /**
@@ -265,13 +269,13 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         if (unstakeFeeRate > 0 && feeWallet != address(0)) {
             uint256 fee = (amountToUnstake * unstakeFeeRate) / 10000;
             if (fee > 0) {
-                IERC20(userStake.stakingToken).transfer(feeWallet, fee);
+                IERC20(userStake.stakingToken).safeTransfer(feeWallet, fee);
             }
             amountToUnstake -= fee;
         }
 
         // Transfer the remaining amount back to the user
-        IERC20(userStake.stakingToken).transfer(msg.sender, amountToUnstake);
+        IERC20(userStake.stakingToken).safeTransfer(msg.sender, amountToUnstake);
 
         emit Unstaked(stakeId, msg.sender, userStake.amount);
     }
@@ -294,13 +298,13 @@ contract AimStaking is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgrad
         if (emergencyUnstakeFeeRate > 0 && feeWallet != address(0)) {
             uint256 fee = (amountToUnstake * emergencyUnstakeFeeRate) / 10000;
             if (fee > 0) {
-                IERC20(userStake.stakingToken).transfer(feeWallet, fee);
+                IERC20(userStake.stakingToken).safeTransfer(feeWallet, fee);
             }
             amountToUnstake -= fee;
         }
 
         // Transfer the remaining amount back to the user
-        IERC20(userStake.stakingToken).transfer(msg.sender, amountToUnstake);
+        IERC20(userStake.stakingToken).safeTransfer(msg.sender, amountToUnstake);
 
         emit EmergencyUnstaked(stakeId, msg.sender, userStake.amount);
     }
